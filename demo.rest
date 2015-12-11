@@ -1,0 +1,612 @@
+:version 0.1
+:auther kevin
+
+flask+uwsgi测试
++++++++++
+
+ngnix和uwsgi之间通过 unix socket 连接
+nginx 开启端口 8888 
+同时uswgi自己另外在8899监听
+
+要测试uwsgi的性能，直接连接8899
+要连带测试nginx的性能，连接8888
+
+.. 注意::
+    uwsgi使用 :ref:`gevent配置 <uwsgi_flask_gevent.ini>` 配置时需要脚本开头的这行代码生效::
+        from gevent import monkey; monkey.patch_all()
+    此时每个微线程都有自己的连接池实例。
+    使用 :ref: `普通配置 <uwsgi_flask.ini>` 时则需要先注释掉上面那行代码。
+
+
+虚拟环境virtualenv
+===================
+::
+    sudo pip install virtualenv
+    virtualenv demo
+    . demo/bin/activate
+
+安装包
+======
+::
+    pip install flask
+    手工安装 DBUtlis
+    pip install pymysql
+    pip install redis
+    pip install IPython
+    pip install distribute
+    pip install setproctitle
+    sudo apt-get install libmysqld-dev
+    pip install MySQL-python
+    pip install uwsgi
+    pip install gevent
+    sudo apt-get install nginx
+
+
+uWSGI listen queue 队列溢出的问题 
+================================
+http://www.cnblogs.com/zhujie/archive/2012/04/27/2474051.html
+vim /etc/sysctl.conf
+net.core.somaxconn = 1024
+sysctl -p
+
+
+查看数据库连接数
+=================
+::
+    watch -n 1 mysqladmin -uzhuan -pzhuan_test -h192.168.199.9 status
+
+
+配置nginx
+=========
+
+配置文件nginx.conf
+-----------------
+/etc/nginx/nginx.conf::
+
+    user www-data;
+    worker_processes 4;
+    pid /run/nginx.pid;
+    worker_rlimit_nofile 32768;
+
+    events {
+        use epoll;
+        worker_connections 10240;
+        multi_accept on;
+    }
+
+    http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+        gzip_disable "msie6";
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # nginx-naxsi config
+        ##
+        # Uncomment it if you installed nginx-naxsi
+        ##
+
+        #include /etc/nginx/naxsi_core.rules;
+
+        ##
+        # nginx-passenger config
+        ##
+        # Uncomment it if you installed nginx-passenger
+        ##
+        
+        #passenger_root /usr;
+        #passenger_ruby /usr/bin/ruby;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+    }
+
+
+    #mail {
+    #    # See sample authentication script at:
+    #    # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+    # 
+    #    # auth_http localhost/auth.php;
+    #    # pop3_capabilities "TOP" "USER";
+    #    # imap_capabilities "IMAP4rev1" "UIDPLUS";
+    # 
+    #    server {
+    #        listen     localhost:110;
+    #        protocol   pop3;
+    #        proxy      on;
+    #    }
+    # 
+    #    server {
+    #        listen     localhost:143;
+    #        protocol   imap;
+    #        proxy      on;
+    #    }
+    #}
+
+
+配置文件flask_demo
+-------------------
+sudo vi /etc/nginx/sites-available/flask_demo
+/etc/nginx/sites-available/flask_demo::
+
+    server {
+
+        access_log off;
+
+            listen 8888;
+            server_name 127.0.0.1;
+    #    root  /home/kevin/data_bk/python/test_flask_tornado_gevent/demo;
+
+           location ~ ^/static/ {
+                root /home/kevin/data_bk/python/test_flask_tornado_gevent/demo/static;
+                access_log off;
+                expires 4d;
+            }
+
+            location / { try_files $uri @flask_app; }
+
+            location @flask_app {
+                    include uwsgi_params;
+                    uwsgi_pass unix:/tmp/uwsgi_flask.sock;
+                    proxy_redirect     off;
+    #            proxy_set_header   Host $host;
+                    proxy_set_header   X-Real-IP $remote_addr;
+                    proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header   X-Forwarded-Host $server_name;
+    #            uwsgi_pass  0.0.0.0:8000;
+            }
+     }
+
+
+生效配置文件
+-----------
+sudo ln -s /etc/nginx/sites-available/flask_demo /etc/nginx/sites-enabled/flask_demo
+sudo unlink /etc/nginx/sites-enable/default
+
+启动ngnix
+---------
+sudo /etc/init.d/nginx start
+
+
+uwsgi
+=====
+
+.. _uwsgi_flask.ini:
+uwsgi普通配置 uwsgi_flask.ini::
+
+    [uwsgi]
+    base = /home/kevin/data_bk/python/test_flask_tornado_gevent/demo/
+    pythonpath = %(base)
+
+    module = flask_demo
+    callable = app
+
+    # socket = 0.0.0.0:8000
+    socket = /tmp/%n.sock
+    http= 127.0.0.1:8899
+    chmod-socket = 666
+
+    master = true
+    listen = 1000
+    #harakiri = 5
+    disable-logging = true
+    thunder-lock = true
+    processes = 6
+    memory-report = false
+    # logto = /home/kevin/data_bk/python/test_flask_tornado_gevent/demo/%n.log
+    stats=127.0.0.1:1717
+    # set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown
+    reload-mercy = 8 
+    logdate = %Y%m%d_%H:%M:%S
+    log-prefix = flask_app
+    log-4xx = true
+    log-5xx = true
+    log-x-forwarded-for = true
+    no-orphans = true
+    max-requests = 1000000
+    vacuum = true
+    uid = kevin
+    gid = kevin
+
+
+: _uwsgi_flask_gevent.ini:
+uwsgi gevent配置 uwsgi_flask_gevent.ini::
+
+    [uwsgi]
+    base = /home/kevin/data_bk/python/test_flask_tornado_gevent/demo/
+    pythonpath = %(base)
+
+    module = flask_demo
+    callable = app
+
+    # socket = 0.0.0.0:8000
+    socket = /tmp/uwsgi_flask.sock
+    http= 127.0.0.1:8899
+    chmod-socket = 666
+
+    master = true
+    listen = 1000
+    #harakiri = 5
+    disable-logging = true
+    thunder-lock = true
+    processes = 6
+    memory-report = false
+    # logto = /home/kevin/data_bk/python/test_flask_tornado_gevent/demo/%n.log
+    stats=127.0.0.1:1717
+    # set the maximum time (in seconds) we wait for workers and other processes to die during reload/shutdown
+    reload-mercy = 8 
+    logdate = %Y%m%d_%H:%M:%S
+    log-prefix = flask_app
+    log-4xx = true
+    log-5xx = true
+    log-x-forwarded-for = true
+    no-orphans = true
+    max-requests = 1000000
+    vacuum = true
+    uid = kevin
+    gid = kevin
+
+    gevent = 300
+    enable-threads = true
+
+
+
+压力测试
+========
+普通配置 uwsgi --ini ./uwsgi_flask.ini
+gevent配置 uwsgi --ini ./uwsgi_flask_gevent.ini
+ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8899/test.do
+ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8888/test.do
+ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8877/test.do
+
+结果
+====
+
+uwsgi普通配置
+-------------
+直接连uwsig::
+    kevin@kevin-nb:~/data_bk/python/test_flask_tornado_gevent/demo$ ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8899/test.do
+    This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+    Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+    Licensed to The Apache Software Foundation, http://www.apache.org/
+
+    Benchmarking 127.0.0.1 (be patient)
+    Completed 1000 requests
+    Completed 2000 requests
+    Completed 3000 requests
+    Completed 4000 requests
+    Completed 5000 requests
+    Completed 6000 requests
+    Completed 7000 requests
+    Completed 8000 requests
+    Completed 9000 requests
+    Completed 10000 requests
+    Finished 10000 requests
+
+
+    Server Software:        
+    Server Hostname:        127.0.0.1
+    Server Port:            8899
+
+    Document Path:          /test.do
+    Document Length:        16 bytes
+
+    Concurrency Level:      500
+    Time taken for tests:   15.303 seconds
+    Complete requests:      10000
+    Failed requests:        0
+    Total transferred:      950000 bytes
+    HTML transferred:       160000 bytes
+    Requests per second:    653.45 [#/sec] (mean)
+    Time per request:       765.173 [ms] (mean)
+    Time per request:       1.530 [ms] (mean, across all concurrent requests)
+    Transfer rate:          60.62 [Kbytes/sec] received
+
+    Connection Times (ms)
+                  min  mean[+/-sd] median   max
+    Connect:        0    1   2.5      0      16
+    Processing:     9  750 199.1    729    1864
+    Waiting:        9  750 199.1    729    1863
+    Total:         25  751 197.8    729    1864
+
+    Percentage of the requests served within a certain time (ms)
+      50%    729
+      66%    798
+      75%    850
+      80%    875
+      90%   1014
+      95%   1130
+      98%   1210
+      99%   1305
+     100%   1864 (longest request)
+
+
+通过nginx连::
+    kevin@kevin-nb:~/data_bk/python/test_flask_tornado_gevent/demo$ ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8888/test.do  
+    This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+    Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+    Licensed to The Apache Software Foundation, http://www.apache.org/
+
+    Benchmarking 127.0.0.1 (be patient)
+    Completed 1000 requests
+    Completed 2000 requests
+    Completed 3000 requests
+    Completed 4000 requests
+    Completed 5000 requests
+    Completed 6000 requests
+    Completed 7000 requests
+    Completed 8000 requests
+    Completed 9000 requests
+    Completed 10000 requests
+    Finished 10000 requests
+
+
+    Server Software:        nginx/1.4.6
+    Server Hostname:        127.0.0.1
+    Server Port:            8888
+
+    Document Path:          /test.do
+    Document Length:        16 bytes
+
+    Concurrency Level:      500
+    Time taken for tests:   15.587 seconds
+    Complete requests:      10000
+    Failed requests:        0
+    Total transferred:      1810000 bytes
+    HTML transferred:       160000 bytes
+    Requests per second:    641.55 [#/sec] (mean)
+    Time per request:       779.360 [ms] (mean)
+    Time per request:       1.559 [ms] (mean, across all concurrent requests)
+    Transfer rate:          113.40 [Kbytes/sec] received
+
+    Connection Times (ms)
+                  min  mean[+/-sd] median   max
+    Connect:        0    1   3.6      0      20
+    Processing:    14  761 186.5    731    1642
+    Waiting:       14  761 186.5    731    1642
+    Total:         33  762 184.7    732    1642
+
+    Percentage of the requests served within a certain time (ms)
+      50%    732
+      66%    808
+      75%    855
+      80%    883
+      90%   1016
+      95%   1088
+      98%   1238
+      99%   1310
+     100%   1642 (longest request)
+
+
+
+uwsgi gevent配置
+----------------
+直接连接uwsgi::
+    kevin@kevin-nb:~/data_bk/python/test_flask_tornado_gevent/demo$ ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8899/test.do  
+    This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+    Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+    Licensed to The Apache Software Foundation, http://www.apache.org/
+
+    Benchmarking 127.0.0.1 (be patient)
+    Completed 1000 requests
+    Completed 2000 requests
+    Completed 3000 requests
+    Completed 4000 requests
+    Completed 5000 requests
+    Completed 6000 requests
+    Completed 7000 requests
+    Completed 8000 requests
+    Completed 9000 requests
+    Completed 10000 requests
+    Finished 10000 requests
+
+
+    Server Software:        
+    Server Hostname:        127.0.0.1
+    Server Port:            8899
+
+    Document Path:          /test.do
+    Document Length:        16 bytes
+
+    Concurrency Level:      500
+    Time taken for tests:   15.400 seconds
+    Complete requests:      10000
+    Failed requests:        0
+    Total transferred:      950000 bytes
+    HTML transferred:       160000 bytes
+    Requests per second:    649.34 [#/sec] (mean)
+    Time per request:       770.013 [ms] (mean)
+    Time per request:       1.540 [ms] (mean, across all concurrent requests)
+    Transfer rate:          60.24 [Kbytes/sec] received
+
+    Connection Times (ms)
+                  min  mean[+/-sd] median   max
+    Connect:        0    1   2.5      0      16
+    Processing:     3  682 968.6    276    7560
+    Waiting:        3  682 968.2    276    7558
+    Total:          3  683 969.4    277    7560
+
+    Percentage of the requests served within a certain time (ms)
+      50%    277
+      66%    593
+      75%    836
+      80%   1091
+      90%   2088
+      95%   3129
+      98%   3709
+      99%   4004
+     100%   7560 (longest request)
+
+
+通过nginx连接::
+
+    kevin@kevin-nb:~/data_bk/python/test_flask_tornado_gevent/demo$ ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8888/test.do  
+    This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+    Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+    Licensed to The Apache Software Foundation, http://www.apache.org/
+
+    Benchmarking 127.0.0.1 (be patient)
+    Completed 1000 requests
+    Completed 2000 requests
+    Completed 3000 requests
+    Completed 4000 requests
+    Completed 5000 requests
+    Completed 6000 requests
+    Completed 7000 requests
+    Completed 8000 requests
+    Completed 9000 requests
+    Completed 10000 requests
+    Finished 10000 requests
+
+
+    Server Software:        nginx/1.4.6
+    Server Hostname:        127.0.0.1
+    Server Port:            8888
+
+    Document Path:          /test.do
+    Document Length:        16 bytes
+
+    Concurrency Level:      500
+    Time taken for tests:   15.813 seconds
+    Complete requests:      10000
+    Failed requests:        0
+    Total transferred:      1810000 bytes
+    HTML transferred:       160000 bytes
+    Requests per second:    632.39 [#/sec] (mean)
+    Time per request:       790.655 [ms] (mean)
+    Time per request:       1.581 [ms] (mean, across all concurrent requests)
+    Transfer rate:          111.78 [Kbytes/sec] received
+
+    Connection Times (ms)
+                  min  mean[+/-sd] median   max
+    Connect:        0    1   2.4      0      17
+    Processing:     3  632 1130.0    106   15469
+    Waiting:        2  632 1130.0    106   15469
+    Total:          3  633 1130.0    107   15485
+
+    Percentage of the requests served within a certain time (ms)
+      50%    107
+      66%    396
+      75%    824
+      80%   1175
+      90%   2053
+      95%   2720
+      98%   3634
+      99%   4489
+     100%  15485 (longest request)
+
+
+.. 说明:
+    gevent模式下服务不稳定，经常出现ab测试由于个别请求没有响应导致的迟迟不能结束的情况
+
+
+tornado同样测试函数，相同进程数，不使用数据库连接池，启动在8877端口并直接连接的测试结果::
+    kevin@kevin-nb:~/data_bk/python/test_flask_tornado_gevent/demo$ ab -r -s 30 -c 500 -n 10000 http://127.0.0.1:8877/test.do  
+    This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+    Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+    Licensed to The Apache Software Foundation, http://www.apache.org/
+
+    Benchmarking 127.0.0.1 (be patient)
+    Completed 1000 requests
+    Completed 2000 requests
+    Completed 3000 requests
+    Completed 4000 requests
+    Completed 5000 requests
+    Completed 6000 requests
+    Completed 7000 requests
+    Completed 8000 requests
+    Completed 9000 requests
+    Completed 10000 requests
+    Finished 10000 requests
+
+
+    Server Software:        TornadoServer/4.0.2
+    Server Hostname:        127.0.0.1
+    Server Port:            8877
+
+    Document Path:          /test.do
+    Document Length:        16 bytes
+
+    Concurrency Level:      500
+    Time taken for tests:   18.916 seconds
+    Complete requests:      10000
+    Failed requests:        0
+    Total transferred:      2340000 bytes
+    HTML transferred:       160000 bytes
+    Requests per second:    528.65 [#/sec] (mean)
+    Time per request:       945.798 [ms] (mean)
+    Time per request:       1.892 [ms] (mean, across all concurrent requests)
+    Transfer rate:          120.81 [Kbytes/sec] received
+
+    Connection Times (ms)
+                  min  mean[+/-sd] median   max
+    Connect:        0   35 219.0      0    3001
+    Processing:     4  715 1553.6     40   17437
+    Waiting:        4  715 1553.6     40   17437
+    Total:          4  750 1571.1     41   18438
+
+    Percentage of the requests served within a certain time (ms)
+      50%     41
+      66%    132
+      75%    574
+      80%   1344
+      90%   2899
+      95%   3960
+      98%   5144
+      99%   6145
+     100%  18438 (longest request)
+
+初步结论
+=======
+
+flask使用连接池，不使用gevent模式是最稳定的，一旦使用gevent，TPS提升不大（db是瓶颈？）但响应速度平均值降低了些，不过个别请求“假死”很烦人。
+tonado不使用连接池就能接近flask使用连接池的性能，且很稳定，配置方便。
+
+
+
+
+参考
+====
+http://docs.sqlalchemy.org/en/rel_1_0/core/pooling.html
+http://ju.outofmemory.cn/entry/127307
+http://blog.csdn.net/crazyhacking/article/details/18617873
+http://wiki.nginx.org/FullExample
+

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf8" />
+        <!--移动设备优先-->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <!-- 引入 Bootstrap -->
+        <link href="http://apps.bdimg.com/libs/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
+        <script src="http://apps.bdimg.com/libs/jquery/2.0.0/jquery.min.js"></script>
+        <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+        <script src="http://apps.bdimg.com/libs/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+        <title>History</title>
+        <script>
+$(document).ready(function(){
+    $(".title_item").click(function(event){
+        $.getJSON(this.id, function(json){
+            $("#content").text(json.content);
+        });
+        return false;
+    });
+})
+        </script>
+    </head>
+    <body>
+
+        <div class="container" style="background-color: #dedef8; box-shadow: inset 1px -1px 1px #444, inset -1px 1px 1px #444;">
+
+            <div class="row">
+                <div class="col-sm-3 col-md-2 col-lg-1">
+                    <ul id="titlelist">
+                        {% for _x in l %}
+                        <li><a class="title_item" id="{{ _x[1] }}" target="content" href="">{{ _x[0] }}</a></li>
+                        <!--<li><button class="title_btn" id="{{ _x[1] }}" type="button">{{ _x[0] }}</button></li>-->
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="col-sm-6 col-md-8 col-lg-10" style="background-color: #dedef8; box-shadow: inset 1px -1px 1px #444, inset -1px 1px 1px #444;">
+                    <div id="content">{{ content }}</div>
+                </div>
+
+                <div class="col-sm-3 col-md-2 col-lg-1">
+                </div>
+            </div>
+
+        </div>
+
+    </body>
+</html>
+
+

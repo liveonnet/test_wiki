@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf8" />
+    <!--移动设备优先-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 引入 Bootstrap -->
+    <!--<link href="http://apps.bdimg.com/libs/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">-->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/layoutit.css" rel="stylesheet">
+    <link href="/static/css/docs.min.css" rel="stylesheet">
+    <link href="/static/css/font-awesome.min.css" rel="stylesheet">
+    <!--jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <!--<script src="http://apps.bdimg.com/libs/jquery/2.0.0/jquery.min.js"></script>-->
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+
+      <!-- HTML5 Shim 和 Respond.js 用于让 IE8 支持 HTML5元素和媒体查询 -->
+      <!-- 注意： 如果通过 file://  引入 Respond.js 文件，则该文件无法起效果 -->
+      <!--[if lt IE 9]>
+         <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+         <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+      <![endif]-->
+
+
+        <title>History</title>
+        <script>
+$(document).ready(function(){
+    $(".title_item").click(function(event){
+        $.getJSON(this.id, function(json){
+            $("#title_header").text(this.text);
+            $("#title_content").text(json.content);
+        });
+        return false;
+    });
+})
+        </script>
+
+<style type="text/css"> 
+.leftfix{margin:0 auto; position:fixed;z-index:99; color:#FFF} 
+.rightfix{margin:0 auto; position:fixed;z-index:99; color:#FFF; right: 0;} 
+</style> 
+
+    </head>
+
+<div class="container">
+<nav role="navigation" class="navbar navbar-default navbar-fixed-top">
+       <div class="navbar-header">
+          <button data-target="#example-navbar-collapse" data-toggle="collapse" class="navbar-toggle" type="button">
+             <span class="sr-only">切换导航</span>
+             <span class="icon-bar"></span>
+             <span class="icon-bar"></span>
+             <span class="icon-bar"></span>
+          </button>
+          <a href="#" class="navbar-brand">W3Cschool</a>
+       </div>
+       <div id="example-navbar-collapse" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+             <li class="active"><a href="#">iOS</a></li>
+             <li><a href="#">SVN</a></li>
+             <li class="dropdown">
+                <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+                   Java <b class="caret"></b>
+                </a>
+                <ul class="dropdown-menu">
+                   <li><a href="#">jmeter</a></li>
+                   <li><a href="#">EJB</a></li>
+                   <li><a href="#">Jasper Report</a></li>
+                   <li class="divider"></li>
+                   <li><a href="#">分离的链接</a></li>
+                   <li class="divider"></li>
+                   <li><a href="#">另一个分离的链接</a></li>
+                </ul>
+             </li>
+          </ul>
+       </div>
+    </nav>
+</div>
+
+
+
+    <body class="devpreview">
+
+        <div id="LG" >
+            <div class="row-fluid">
+                <div class="col-sm-3 col-md-2 col-lg-1 ">
+
+                    <div class="leftfix">
+                        <ul class="nav nav-list ">
+                            <li class="nav-header"> 列表标题 </li>
+                            {% for _x in l %}
+                            <li><a class="title_item" id="{{ _x[1] }}" target="content" href="#">{{ _x[0] }}</a></li>
+                            {% endfor %}
+                            <li class="divider"> </li>
+                            <li> <a href="#">TODO paging</a> </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-md-8 col-lg-10 column" >
+                    <h2 id="title_header"></h2>
+                    <!--<p id="title_content">{{content}}</p>-->
+                    <textarea type="text" id="title_content" readonly="readonly" rows="" cols="80">{{content}}</textarea>
+                    <p><a class="btn" href="#">查看更多 »</a></p>
+                </div>
+                <div class="col-sm-3 col-md-2 col-lg-1 rightfix" >
+                    <ul class="nav nav-list">
+                        <li class="nav-header"> 列表标题 </li>
+                        <li class="active"> <a href="#">首页</a> </li>
+                        <li> <a href="#">库</a> </li>
+                        <li> <a href="#">应用</a> </li>
+                        <li class="nav-header"> 功能列表 </li>
+                        <li> <a href="#">资料</a> </li>
+                        <li> <a href="#">设置</a> </li>
+                        <li class="divider"> </li>
+                        <li> <a href="#">帮助</a> </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </body>
+</html>
+
+

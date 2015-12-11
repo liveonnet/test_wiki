@@ -55,3 +55,17 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# vim
+*.sw?
+*~
+
+# config
+server.conf
+
+# virtualenv
+env_wiki/
+
+*.dat
+*.sqlite
+script/data
