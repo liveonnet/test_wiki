@@ -40,7 +40,7 @@ class Page(Base):
     content = Column(Text)
     size = Column(Integer)
     wiki_page_id = Column(Integer)
-    tags = relationship('Tag', secondary=page_tag, order_by='Tag.weight.desc()', backref='pages')
+    tags = relationship('Tag', secondary=page_tag, order_by='Tag.weight.desc()', backref='pages', lazy='dynamic')
 
     def __init__(self, content, wiki_page_id):
         self.content = content
@@ -52,7 +52,7 @@ class Page(Base):
         return [x for x in self.tags if x.weight == 99]
 
     def __repr__(self):
-        return "<Page(title='%s', pid=%d, size=%d)>" % (self.title, self.wiki_page_id, self.size)
+        return "<Page('%s', %d, %s)>" % (self.title, self.wiki_page_id, format(self.size, ','))
 
 
 class Tag(Base):
@@ -62,7 +62,7 @@ class Tag(Base):
     weight = Column(Integer)
 
     def __repr__(self):
-        return "<Tag(content='%s', weight=%d)>" % (self.content, self.weight)
+        return "<Tag('%s', %d, %d)>" % (self.content, self.id, self.weight)
 
 
 if __name__ == '__main__':

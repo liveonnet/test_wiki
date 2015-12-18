@@ -25,26 +25,152 @@
 
         <title>History</title>
         <script>
-$(document).ready(function(){
-    $(".title_item").click(function(event){
-        $.getJSON(this.id, function(json){
-            $("#title_header").text(this.text);
-            $("#title_content").text(json.content);
+        $(document).ready(function(){
+            var events = {
+                'click': function(event){
+                    $.getJSON(this.id, function(j_data){
+                        var obj = event.currentTarget;
+                        $("#title_header").text(obj.text);
+                        $("#title_header").attr('title_id', obj.id); // 用于获取更多的tag使用
+                        $("#title_content").html(j_data.content.replace(/(?:\r\n|\r|\n)/g, '<br />').replace(/(?:\[\[)/g, '<b>').replace(/(?:\]\])/g, '</b>'));
+                        $('#contentpane').scrollTop(0);
+                        if(j_data.code==1){
+                            // 处理面包屑导航
+                            $(".history_url_item").removeClass('active');
+                            var _tmp = $('.history_url_item').last();
+                            if(_tmp){
+                                _tmp.html(_tmp.text());
+                            }
+                            $("#history_url").append('<li class="history_url_item active" url="' + obj.id + '"><a href="#">'+ obj.text + '</a></li>');
+                        }
+                        var tags = j_data.tags;
+                        if(tags && tags.length>0){
+                            var x = $("#tag_in_content");
+                            x.empty();
+                            for(_i in tags){
+                                x.append('<li><a class="tag_item" target="content" id="' + tags[_i].url + '" href="#" >'+ tags[_i].content + '</a></li>');
+                            }
+                            $('#rightpane').scrollTop(0); // 滚动条回到最上
+
+                        }
+                    });
+                    return false;
+                },
+            };
+
+            $("#leftlist").on(events, ".title_item"); // 点击标题，显示相应内容和标签
+            $("#tag_in_content").on(events, ".tag_item"); // 点击标签，显示相应内容和标签
+
+
+            // 左右面板大小随可视窗体动态调整
+            $(window).resize(function (){
+                var x = $(window).height() - $('#line1').height();
+                $('#leftpane')[0].style['height'] = x + 'px';
+
+                $('#leftpane')[0].style['width'] = '10%';
+
+                $('#leftpane')[0].style['overflow'] = 'auto';
+                $('#rightpane')[0].style['height'] = x + 'px';
+
+                // $('#rightpane')[0].style['width'] = '10%';
+
+                $('#rightpane')[0].style['overflow'] = 'auto';
+            });
+             
+            $(window).resize();
+
+            // 获取更多的标题
+            title_pending = false;
+            function getTitleList(event){
+                last_id = $('#leftlist > li :last > a')[0].id.split('/')[2];
+
+                if(!title_pending){
+                    title_pending = true;
+                    $.getJSON('/title/f/' + last_id, function(j_data){
+                        var _tmp = $("#leftlist");
+                        var titles = j_data.titles;
+                        for(_i in titles){
+                            _tmp.append('<li><a class="title_item" id="'+ titles[_i][1] + '" target="content" href="#">'+ titles[_i][0] + '</a></li>');
+                        }
+                        title_pending = false;
+                    });
+                }
+                return false;
+            };
+
+            // 获得更多的tag
+            tag_pending = false;
+            function getTagList(event){
+                title_id = $("#title_header").attr('title_id').split('/')[2];
+                last_id = $('#tag_in_content > li :last > a')[0].id.split('/')[2];
+                if(!tag_pending){
+                    tag_pending = true
+                    $.getJSON('/tag_in_content/' + title_id + '/f/' + last_id, function(j_data){
+                        var _tmp = $("#tag_in_content");
+                        var tags = j_data.tags;
+                        for(_i in tags){
+                            _tmp.append('<li><a class="tag_item" id="'+ tags[_i].url + '" target="content" href="#">'+ tags[_i].content + '</a></li>');
+                        }
+                        tag_pending = false;
+                    });
+                }
+
+                return false;
+            };
+
+            $("#leftpane").scroll(function(event){
+                search_pattern = $('#search_title').val();
+                if(search_pattern != ''){
+                    return true;
+                }
+                var $this=$(this), viewH=$(this).height(), contentH=$(this).get(0).scrollHeight, scrollTop=$(this).scrollTop();
+                //if(contentH-viewH-scrollTop<=100){ // 到达底部100
+                //}
+                if(scrollTop/(contentH-viewH)>=0.95 ) { // 
+                    getTitleList(event);
+                }
+            });
+
+             $("#rightpane").scroll(function(event){
+                 var $this=$(this), viewH=$(this).height(), contentH=$(this).get(0).scrollHeight, scrollTop=$(this).scrollTop();
+                 //if(contentH-viewH-scrollTop<=100){ // 到达底部100
+                 //}
+                 if(scrollTop/(contentH-viewH)>=0.95 ) { // 
+                     getTagList(event);
+                 }
+             });
+
+             // 搜索标题
+             $('#search_title_btn').click(function(event){
+                search_pattern = $('#search_title').val()
+                $.getJSON('/title/s/' + search_pattern, function(j_data){
+                    var titles = j_data.titles;
+                    if(titles && titles.length>0){
+                        var _tmp = $("#leftlist");
+                        _tmp.empty();
+                        for(_i in titles){
+                            _tmp.append('<li><a class="title_item" id="'+ titles[_i][1] + '" target="content" href="#">'+ titles[_i][0] + '</a></li>');
+                        }
+                    }
+                });
+
+                return false;
+             });
+
         });
-        return false;
-    });
-})
+
+
         </script>
 
 <style type="text/css"> 
-.leftfix{margin:0 auto; position:fixed;z-index:99; color:#FFF} 
+.leftfix{margin:0 auto; position:fixed;z-index:99; color:#FFF; left:0;} 
 .rightfix{margin:0 auto; position:fixed;z-index:99; color:#FFF; right: 0;} 
 </style> 
 
     </head>
 
 <div class="container">
-<nav role="navigation" class="navbar navbar-default navbar-fixed-top">
+<nav id="line1" role="navigation" class="navbar navbar-default navbar-fixed-top">
        <div class="navbar-header">
           <button data-target="#example-navbar-collapse" data-toggle="collapse" class="navbar-toggle" type="button">
              <span class="sr-only">切换导航</span>
@@ -54,14 +180,14 @@ $(document).ready(function(){
           </button>
           <a href="#" class="navbar-brand">W3Cschool</a>
        </div>
+
        <div id="example-navbar-collapse" class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
+           <!--向左对齐-->
+          <ul class="nav navbar-nav navbar-left">
              <li class="active"><a href="#">iOS</a></li>
              <li><a href="#">SVN</a></li>
              <li class="dropdown">
-                <a data-toggle="dropdown" class="dropdown-toggle" href="#">
-                   Java <b class="caret"></b>
-                </a>
+                <a data-toggle="dropdown" class="dropdown-toggle" href="#"> Java <b class="caret"></b></a>
                 <ul class="dropdown-menu">
                    <li><a href="#">jmeter</a></li>
                    <li><a href="#">EJB</a></li>
@@ -73,7 +199,32 @@ $(document).ready(function(){
                 </ul>
              </li>
           </ul>
+           <form class="navbar-form navbar-left" role="search">
+               <div class="form-group">
+                   <input id="search_title" type="text" class="form-control" placeholder="Search">
+               </div>
+               <button id="search_title_btn" type="submit" class="btn btn-default">提交</button>
+           </form>    
+
+           <!--向右对齐-->
+           <ul class="nav navbar-nav navbar-right">
+               <li class="dropdown">
+                   <a href="#" class="dropdown-toggle" data-toggle="dropdown"> About <b class="caret"></b></a>
+                   <ul class="dropdown-menu">
+                       <li><a href="#">jmeter</a></li>
+                       <li><a href="#">EJB</a></li>
+                       <li><a href="#">Jasper Report</a></li>
+                       <li class="divider"></li>
+                       <li><a href="#">分离的链接</a></li>
+                       <li class="divider"></li>
+                       <li><a href="#">另一个分离的链接</a></li>
+                   </ul>
+               </li>
+           </ul>
+           <p class="navbar-text navbar-right">向右对齐-文本</p>
+
        </div>
+
     </nav>
 </div>
 
@@ -84,36 +235,40 @@ $(document).ready(function(){
         <div id="LG" >
             <div class="row-fluid">
                 <div class="col-sm-3 col-md-2 col-lg-1 ">
-
-                    <div class="leftfix">
-                        <ul class="nav nav-list ">
-                            <li class="nav-header"> 列表标题 </li>
+                    <div id="leftpane" class="nav nav-list leftfix">
+                        <ul id="leftlist" class="nav nav-list" >
+                            <!--<li class="nav-header"> 列表标题 </li>-->
                             {% for _x in l %}
                             <li><a class="title_item" id="{{ _x[1] }}" target="content" href="#">{{ _x[0] }}</a></li>
                             {% endfor %}
-                            <li class="divider"> </li>
-                            <li> <a href="#">TODO paging</a> </li>
                         </ul>
                     </div>
                 </div>
-                <div class="col-sm-6 col-md-8 col-lg-10 column" >
-                    <h2 id="title_header"></h2>
-                    <!--<p id="title_content">{{content}}</p>-->
-                    <textarea type="text" id="title_content" readonly="readonly" rows="" cols="80">{{content}}</textarea>
-                    <p><a class="btn" href="#">查看更多 »</a></p>
+                <div class="col-sm-6 col-md-8 col-lg-10 " >
+                    <div id="contentpane" class="column">
+                        <p><ol class="breadcrumb" id="history_url"></ol></p>
+                        <p><h2 id="title_header"></h2></p>
+                        <p id="title_content">{{content}}</p>
+                        <!--<textarea type="text" id="title_content" readonly="readonly" rows="" cols="80">{{content}}</textarea>-->
+                        <p><a class="btn" href="#">查看更多 »</a></p>
+                    </div>
                 </div>
                 <div class="col-sm-3 col-md-2 col-lg-1 rightfix" >
-                    <ul class="nav nav-list">
-                        <li class="nav-header"> 列表标题 </li>
-                        <li class="active"> <a href="#">首页</a> </li>
-                        <li> <a href="#">库</a> </li>
-                        <li> <a href="#">应用</a> </li>
-                        <li class="nav-header"> 功能列表 </li>
-                        <li> <a href="#">资料</a> </li>
-                        <li> <a href="#">设置</a> </li>
-                        <li class="divider"> </li>
-                        <li> <a href="#">帮助</a> </li>
-                    </ul>
+                    <div id="rightpane" class="nav nav-list">
+                        <ul class="nav nav-list" >
+                            <li class="nav-header"> 列表标题 </li>
+                            <li class="active"> <a href="#">首页</a> </li>
+                            <li> <a href="#">库</a> </li>
+                            <li> <a href="#">应用</a> </li>
+                            <li class="nav-header"> 功能列表 </li>
+                            <li> <a href="#">资料</a> </li>
+                            <li> <a href="#">设置</a> </li>
+                            <li class="divider"> </li>
+                            <li> <a href="#">帮助</a> </li>
+                        </ul>
+                        <ul id="tag_in_content" class="nav nav-list" >
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
