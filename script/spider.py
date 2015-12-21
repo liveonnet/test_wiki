@@ -8,6 +8,20 @@ en.wikipedia.org则不需要
 
 SELECT content, count(*) t FROM tags where weight=99 group by content having t > 1;
 SELECT wiki_page_id, count(*) t FROM pages group by wiki_page_id having t > 1 order by t desc ;
+
+参考：
+https://zh.wikipedia.org/wiki/Wikipedia:%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%8B%E8%BD%BD
+https://www.mediawiki.org/wiki/Manual:Database_layout/zh
+https://www.mediawiki.org/wiki/API:Main_page
+https://www.mediawiki.org/wiki/API:Data_formats
+https://www.mediawiki.org/wiki/API:Parsing_wikitext
+https://www.mediawiki.org/wiki/Help:Magic_words
+https://www.mediawiki.org/wiki/Help:Templates
+https://www.mediawiki.org/wiki/API:Query/zh
+https://en.wikipedia.org/wiki/Special:ApiSandbox#action=query&prop=revisions&format=json&rvprop=content&rvexpandtemplates=&rvcontentformat=application%2Fjson&indexpageids=&titles=%E6%98%8E&redirects=
+https://www.mediawiki.org/wiki/API:Main_page#A_simple_example
+https://www.mediawiki.org/wiki/API:Web_APIs_hub
+https://www.mediawiki.org/wiki/Manual:Contents
 '''
 
 import sys
